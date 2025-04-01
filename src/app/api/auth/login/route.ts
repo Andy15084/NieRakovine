@@ -40,7 +40,9 @@ export async function POST(request: Request) {
       nodeEnv: process.env.NODE_ENV,
       hasDbUrl: !!process.env.DATABASE_URL,
       hasDirectUrl: !!process.env.DIRECT_URL,
-      hasJwtSecret: !!process.env.JWT_SECRET
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      dbUrlPreview: process.env.DATABASE_URL?.split('@')[1]?.split('?')[0],
+      directUrlPreview: process.env.DIRECT_URL?.split('@')[1]?.split('?')[0]
     };
     console.log('Environment check:', envCheck);
 
@@ -64,35 +66,60 @@ export async function POST(request: Request) {
       );
     }
 
-    // Test database connection with a simple query
-    try {
-      const userCount = await prisma.user.count();
-      console.log('Database connection test successful, users found:', userCount);
-    } catch (connError) {
-      console.error('Database connection test failed:', {
-        error: connError instanceof Error ? connError.message : 'Unknown error',
-        stack: connError instanceof Error ? connError.stack : undefined
-      });
-      return NextResponse.json(
-        { error: 'Database connection failed' },
-        { status: 500 }
-      );
+    // Test database connection and retry if needed
+    let userCount: number | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await prisma.$connect();
+        userCount = await prisma.user.count();
+        console.log(`Database connection successful on attempt ${attempt}, users found:`, userCount);
+        break;
+      } catch (connError) {
+        console.error(`Database connection attempt ${attempt} failed:`, {
+          error: connError instanceof Error ? connError.message : 'Unknown error',
+          stack: connError instanceof Error ? connError.stack : undefined
+        });
+        if (attempt === 3) {
+          return NextResponse.json(
+            { error: 'Database connection failed after multiple attempts' },
+            { status: 500 }
+          );
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retrying
+      }
     }
 
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: { profile: true }
-    });
-
-    console.log('User lookup result:', user ? {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      hasProfile: !!user.profile
-    } : 'User not found');
+    // Find user with retries
+    let user = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        user = await prisma.user.findUnique({
+          where: { email },
+          include: { profile: true }
+        });
+        
+        console.log('User lookup result:', user ? {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          hasProfile: !!user.profile
+        } : 'User not found');
+        
+        break;
+      } catch (userError) {
+        console.error(`User lookup attempt ${attempt} failed:`, userError);
+        if (attempt === 3) {
+          return NextResponse.json(
+            { error: 'Failed to lookup user' },
+            { status: 500 }
+          );
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
 
     if (!user) {
+      console.log('No user found with email:', email);
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -100,25 +127,42 @@ export async function POST(request: Request) {
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      console.log('Invalid password for user:', email);
+    try {
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        console.log('Invalid password for user:', email);
+        return NextResponse.json(
+          { error: 'Invalid credentials' },
+          { status: 401 }
+        );
+      }
+    } catch (passwordError) {
+      console.error('Password verification error:', passwordError);
       return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
+        { error: 'Password verification failed' },
+        { status: 500 }
       );
     }
 
     // Create JWT token
-    const token = jwt.sign(
-      { 
-        userId: user.id,
-        email: user.email,
-        role: user.role
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
+    let token: string;
+    try {
+      token = jwt.sign(
+        { 
+          userId: user.id,
+          email: user.email,
+          role: user.role
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '1d' }
+      );
+    } catch (tokenError) {
+      console.error('Token creation error:', tokenError);
+      return NextResponse.json(
+        { error: 'Failed to create authentication token' },
+        { status: 500 }
+      );
+    }
 
     // Create response
     const response = NextResponse.json(
@@ -151,5 +195,11 @@ export async function POST(request: Request) {
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
+  } finally {
+    try {
+      await prisma.$disconnect();
+    } catch (disconnectError) {
+      console.warn('Error disconnecting from database:', disconnectError);
+    }
   }
 } 
