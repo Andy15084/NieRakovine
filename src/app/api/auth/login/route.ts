@@ -5,11 +5,19 @@ import jwt from 'jsonwebtoken';
 
 // Configure Prisma Client with special handling for connection pooling
 const prismaClientSingleton = () => {
+  // Log database configuration
+  console.log('Initializing Prisma Client with config:', {
+    hasDbUrl: !!process.env.DATABASE_URL,
+    hasDirectUrl: !!process.env.DIRECT_URL,
+    dbUrlPreview: process.env.DATABASE_URL?.split('@')[1]?.split('?')[0], // Safe URL preview
+    directUrlPreview: process.env.DIRECT_URL?.split('@')[1]?.split('?')[0] // Safe URL preview
+  });
+
   return new PrismaClient({
     log: ['query', 'error', 'warn'],
     datasources: {
       db: {
-        url: process.env.DATABASE_URL
+        url: process.env.DIRECT_URL || process.env.DATABASE_URL
       }
     }
   })
@@ -33,12 +41,13 @@ export async function POST(request: Request) {
       hasDbUrl: !!process.env.DATABASE_URL,
       hasDirectUrl: !!process.env.DIRECT_URL,
       hasJwtSecret: !!process.env.JWT_SECRET,
-      dbUrlPreview: process.env.DATABASE_URL?.split('@')[1]?.split('?')[0] // Safe URL preview
+      dbUrlPreview: process.env.DATABASE_URL?.split('@')[1]?.split('?')[0], // Safe URL preview
+      directUrlPreview: process.env.DIRECT_URL?.split('@')[1]?.split('?')[0] // Safe URL preview
     };
     console.log('Environment check:', envCheck);
 
-    if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL is not configured');
+    if (!process.env.DATABASE_URL && !process.env.DIRECT_URL) {
+      throw new Error('Neither DATABASE_URL nor DIRECT_URL is configured');
     }
 
     if (!process.env.JWT_SECRET) {
@@ -59,10 +68,14 @@ export async function POST(request: Request) {
 
     // Test database connection first
     try {
-      const testQuery = await prisma.$queryRaw`SELECT 1`;
+      console.log('Testing database connection...');
+      const testQuery = await prisma.$queryRaw`SELECT current_database(), current_user, version()`;
       console.log('Database connection test successful:', testQuery);
     } catch (connError) {
-      console.error('Database connection test failed:', connError);
+      console.error('Database connection test failed:', {
+        error: connError instanceof Error ? connError.message : 'Unknown error',
+        stack: connError instanceof Error ? connError.stack : undefined
+      });
       return NextResponse.json(
         { error: 'Database connection failed', details: connError instanceof Error ? connError.message : 'Unknown error' },
         { status: 500 }
