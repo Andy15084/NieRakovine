@@ -6,6 +6,9 @@
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
+  --primary-purple: #8E44AD;
+  --light-purple: #9B59B6;
+  --dark-purple: #6C3483;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,4 +27,20 @@ body {
     rgb(var(--background-end-rgb))
   )
   rgb(var(--background-start-rgb));
+  @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-white;
+}
+
+.nav-link {
+  @apply px-4 py-2 hover:text-light-purple transition-colors duration-200;
+}
+
+.dropdown {
+  @apply invisible opacity-0 absolute bg-white shadow-lg rounded-md py-2 min-w-[200px]
+  transition-all duration-200 transform -translate-y-2 group-hover:visible 
+  group-hover:opacity-100 group-hover:translate-y-0;
+}
+
+.dropdown-item {
+  @apply block px-4 py-2 text-gray-800 hover:bg-light-purple hover:text-white
+  transition-colors duration-200;
 }

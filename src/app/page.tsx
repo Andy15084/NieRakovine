@@ -2,30 +2,64 @@
 
 import Link from 'next/link';
 
-export default function HomePage() {
+export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center">
-          <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-            <span className="block">Welcome to</span>
-            <span className="block text-indigo-600">Nie Rakovine</span>
-          </h1>
-          <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-            Together we can make a difference in the fight against cancer.
+    <div className="max-w-7xl mx-auto px-4 py-12">
+      <section className="text-center mb-16">
+        <h1 className="text-4xl md:text-6xl font-bold text-primary-purple mb-6">
+          Vitajte na Nie Rakovine
+        </h1>
+        <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          Sme tu pre vás a vašich blízkych v boji proti rakovine. Poskytujeme podporu,
+          informácie a pomoc pacientom a ich rodinám.
+        </p>
+      </section>
+
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+          <h2 className="text-2xl font-bold text-primary-purple mb-4">Podpora pacientov</h2>
+          <p className="text-gray-600 dark:text-gray-300">
+            Poskytujeme komplexnú podporu pacientom s rakovinou prostredníctvom našich
+            poradní a informačných služieb.
           </p>
-          <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
-            <div className="rounded-md shadow">
-              <Link
-                href="/login"
-                className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 md:py-4 md:text-lg md:px-10"
-              >
-                Sign In
-              </Link>
-            </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+          <h2 className="text-2xl font-bold text-primary-purple mb-4">Vzdelávanie</h2>
+          <p className="text-gray-600 dark:text-gray-300">
+            Organizujeme vzdelávacie programy a poskytujeme aktuálne informácie o
+            prevencii a liečbe rakoviny.
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+          <h2 className="text-2xl font-bold text-primary-purple mb-4">Výskum</h2>
+          <p className="text-gray-600 dark:text-gray-300">
+            Podporujeme výskum v oblasti onkológie a prinášame najnovšie poznatky
+            z oblasti liečby rakoviny.
+          </p>
+        </div>
+      </section>
+
+      <section className="text-center mb-16">
+        <h2 className="text-3xl font-bold text-primary-purple mb-6">
+          Ako sa môžete zapojiť?
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h3 className="text-xl font-bold text-primary-purple mb-4">Staňte sa dobrovoľníkom</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Pripojte sa k našej komunite dobrovoľníkov a pomôžte nám v boji proti rakovine.
+            </p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h3 className="text-xl font-bold text-primary-purple mb-4">Podporte nás</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Vaša podpora nám pomáha pokračovať v našej misii pomáhať pacientom s rakovinou.
+            </p>
           </div>
         </div>
-      </main>
+      </section>
     </div>
   );
 }
