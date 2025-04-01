@@ -1,26 +1,18 @@
-import { PrismaClient, UserRole } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
-// Configure Prisma Client with special handling for connection pooling
-const prismaClientSingleton = () => {
-  return new PrismaClient({
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL
-      }
-    },
-    log: ['query', 'error', 'warn']
-  })
-}
-
-const prisma = prismaClientSingleton();
+const prisma = new PrismaClient({
+  log: ['query', 'error', 'warn'],
+});
 
 async function verifyDatabaseConnection() {
   try {
-    // Test query
-    const count = await prisma.user.count();
-    console.log(`✓ Database query successful (${count} users found)`);
-    console.log('Database URL:', process.env.DATABASE_URL?.split('?')[0]); // Log URL without credentials
+    // Deallocate any existing prepared statements
+    await prisma.$executeRaw`DEALLOCATE ALL`;
+    
+    // Test the connection
+    const result = await prisma.$queryRaw`SELECT current_database(), current_user`;
+    console.log('✓ Database query successful:', result);
     return true;
   } catch (error) {
     console.error('✗ Database connection failed:', error);
@@ -29,65 +21,72 @@ async function verifyDatabaseConnection() {
 }
 
 async function main() {
-  try {
-    console.log('Starting database seeding...');
-    console.log('Environment check:', {
-      nodeEnv: process.env.NODE_ENV,
-      hasDbUrl: !!process.env.DATABASE_URL,
-      hasDirectUrl: !!process.env.DIRECT_URL
-    });
+  console.log('Starting database seeding...');
+  
+  // Log environment check
+  const envCheck = {
+    nodeEnv: process.env.NODE_ENV,
+    hasDbUrl: !!process.env.DATABASE_URL,
+    hasDirectUrl: !!process.env.DIRECT_URL
+  };
+  console.log('Environment check:', envCheck);
 
+  try {
     // Verify database connection
     const isConnected = await verifyDatabaseConnection();
     if (!isConnected) {
       throw new Error('Failed to connect to database');
     }
 
-    // Create admin user
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    
-    console.log('Creating admin user...');
-    const admin = await prisma.user.upsert({
-      where: { email: 'admin@charity.org' },
-      update: {
-        password: hashedPassword,
-        role: UserRole.ADMIN,
-      },
-      create: {
-        email: 'admin@charity.org',
-        name: 'Administrator',
-        password: hashedPassword,
-        role: UserRole.ADMIN,
-        profile: {
-          create: {
-            phone: '+1234567890',
-            bio: 'System Administrator',
-          },
+    // Start transaction
+    await prisma.$transaction(async (tx) => {
+      // Check if admin exists
+      const userCount = await tx.user.count();
+      console.log(`Found ${userCount} existing users`);
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+
+      // Create or update admin user
+      const admin = await tx.user.upsert({
+        where: { email: 'admin@charity.org' },
+        update: {
+          password: hashedPassword,
+          role: 'ADMIN',
         },
-      },
-    });
+        create: {
+          email: 'admin@charity.org',
+          password: hashedPassword,
+          role: 'ADMIN',
+          profile: {
+            create: {
+              bio: 'Admin user',
+            }
+          }
+        },
+        include: {
+          profile: true
+        }
+      });
 
-    console.log('Admin user created/updated:', {
-      id: admin.id,
-      email: admin.email,
-      role: admin.role
-    });
+      console.log('Admin user created/updated:', {
+        id: admin.id,
+        email: admin.email,
+        role: admin.role
+      });
 
-    // Verify admin user was created
-    const verifyAdmin = await prisma.user.findUnique({
-      where: { email: 'admin@charity.org' },
-      include: { profile: true }
-    });
+      // Verify admin user
+      const verifiedAdmin = await tx.user.findUnique({
+        where: { email: 'admin@charity.org' },
+        include: { profile: true }
+      });
 
-    if (!verifyAdmin) {
-      throw new Error('Failed to verify admin user creation');
-    }
-
-    console.log('✓ Admin user verified:', {
-      id: verifyAdmin.id,
-      email: verifyAdmin.email,
-      role: verifyAdmin.role,
-      hasProfile: !!verifyAdmin.profile
+      console.log('✓ Admin user verified:', {
+        id: verifiedAdmin?.id,
+        email: verifiedAdmin?.email,
+        role: verifiedAdmin?.role,
+        hasProfile: !!verifiedAdmin?.profile
+      });
     });
 
     console.log('Database seeding completed successfully!');
@@ -100,14 +99,14 @@ async function main() {
   }
 }
 
-// Add error handling for unhandled rejections
+// Handle unhandled promise rejections
 process.on('unhandledRejection', (error) => {
-  console.error('Unhandled rejection:', error);
+  console.error('Unhandled promise rejection:', error);
   process.exit(1);
 });
 
 main()
-  .catch((e) => {
-    console.error('Fatal error:', e);
+  .catch((error) => {
+    console.error('Fatal error:', error);
     process.exit(1);
   }); 

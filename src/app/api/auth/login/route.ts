@@ -66,122 +66,98 @@ export async function POST(request: Request) {
       );
     }
 
-    // Test database connection first
+    // Deallocate any existing prepared statements
     try {
-      console.log('Testing database connection...');
-      const testQuery = await prisma.$queryRaw`SELECT current_database(), current_user, version()`;
-      console.log('Database connection test successful:', testQuery);
-    } catch (connError) {
-      console.error('Database connection test failed:', {
-        error: connError instanceof Error ? connError.message : 'Unknown error',
-        stack: connError instanceof Error ? connError.stack : undefined
-      });
-      return NextResponse.json(
-        { error: 'Database connection failed', details: connError instanceof Error ? connError.message : 'Unknown error' },
-        { status: 500 }
-      );
+      await prisma.$executeRaw`DEALLOCATE ALL`;
+    } catch (deallocError) {
+      console.warn('Failed to deallocate statements:', deallocError);
+      // Continue anyway as this is not critical
     }
 
-    // Find user
-    let user;
-    try {
-      user = await prisma.user.findUnique({
+    // Use transaction for consistent database operations
+    const result = await prisma.$transaction(async (tx) => {
+      // Test database connection
+      try {
+        const testQuery = await tx.$queryRaw`SELECT current_database(), current_user`;
+        console.log('Database connection test successful:', testQuery);
+      } catch (connError) {
+        console.error('Database connection test failed:', {
+          error: connError instanceof Error ? connError.message : 'Unknown error',
+          stack: connError instanceof Error ? connError.stack : undefined
+        });
+        throw new Error('Database connection failed');
+      }
+
+      // Find user
+      const user = await tx.user.findUnique({
         where: { email },
         include: { profile: true }
       });
+
       console.log('User lookup result:', user ? {
         id: user.id,
         email: user.email,
         role: user.role,
         hasProfile: !!user.profile
       } : 'User not found');
-    } catch (userError) {
-      console.error('User lookup error:', userError);
-      return NextResponse.json(
-        { error: 'Failed to lookup user', details: userError instanceof Error ? userError.message : 'Unknown error' },
-        { status: 500 }
-      );
-    }
 
-    if (!user) {
-      console.log('No user found with email:', email);
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
-    }
+      if (!user) {
+        return { error: 'Invalid credentials', status: 401 };
+      }
 
-    // Verify password
-    try {
+      // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
         console.log('Invalid password for user:', email);
-        return NextResponse.json(
-          { error: 'Invalid credentials' },
-          { status: 401 }
-        );
+        return { error: 'Invalid credentials', status: 401 };
       }
-    } catch (passwordError) {
-      console.error('Password verification error:', passwordError);
+
+      return { user };
+    });
+
+    if ('error' in result) {
       return NextResponse.json(
-        { error: 'Password verification failed', details: passwordError instanceof Error ? passwordError.message : 'Unknown error' },
-        { status: 500 }
+        { error: result.error },
+        { status: result.status }
       );
     }
 
     // Create JWT token
-    let token;
-    try {
-      token = jwt.sign(
-        { 
-          userId: user.id,
-          email: user.email,
-          role: user.role
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: '1d' }
-      );
-    } catch (tokenError) {
-      console.error('Token creation error:', tokenError);
-      return NextResponse.json(
-        { error: 'Failed to create authentication token', details: tokenError instanceof Error ? tokenError.message : 'Unknown error' },
-        { status: 500 }
-      );
-    }
+    const token = jwt.sign(
+      { 
+        userId: result.user.id,
+        email: result.user.email,
+        role: result.user.role
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
 
     // Create response
-    try {
-      const response = NextResponse.json(
-        { 
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            profile: user.profile
-          }
-        },
-        { status: 200 }
-      );
+    const response = NextResponse.json(
+      { 
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+          role: result.user.role,
+          profile: result.user.profile
+        }
+      },
+      { status: 200 }
+    );
 
-      response.cookies.set({
-        name: 'auth-token',
-        value: token,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 86400 // 1 day
-      });
+    response.cookies.set({
+      name: 'auth-token',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 86400 // 1 day
+    });
 
-      console.log('Login successful for user:', email);
-      return response;
-    } catch (responseError) {
-      console.error('Response creation error:', responseError);
-      return NextResponse.json(
-        { error: 'Failed to create response', details: responseError instanceof Error ? responseError.message : 'Unknown error' },
-        { status: 500 }
-      );
-    }
+    console.log('Login successful for user:', email);
+    return response;
   } catch (error) {
     console.error('Unhandled login error:', error);
     return NextResponse.json(
