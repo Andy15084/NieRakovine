@@ -28,7 +28,7 @@ body {
 @layer components {
   .nav-link {
     @apply px-4 py-2 rounded-md transition-all duration-200 
-    bg-[var(--light-purple)] text-white
+    bg-[var(--primary-purple)] text-white
     hover:bg-[var(--dark-purple)] hover:shadow-md;
   }
 
@@ -43,7 +43,7 @@ body {
 
   .dropdown-item {
     @apply block px-4 py-2 text-gray-800 transition-colors duration-200 
-    hover:bg-[var(--light-purple)] hover:text-white;
+    hover:bg-[var(--primary-purple)] hover:text-white;
   }
 
   .footer {
