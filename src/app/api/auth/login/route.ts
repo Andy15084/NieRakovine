@@ -56,7 +56,9 @@ export async function POST(request: Request) {
       { status: 200 }
     );
 
-    response.cookies.set('auth-token', token, {
+    response.cookies.set({
+      name: 'auth-token',
+      value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
