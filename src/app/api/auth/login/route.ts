@@ -20,24 +20,27 @@ if (process.env.NODE_ENV === 'production') {
 
 export async function POST(request: Request) {
   try {
-    // Log environment variables (without sensitive data)
+    // Log environment check
     console.log('Environment check:', {
+      nodeEnv: process.env.NODE_ENV,
       hasDbUrl: !!process.env.DATABASE_URL,
-      hasJwtSecret: !!process.env.JWT_SECRET,
-      nodeEnv: process.env.NODE_ENV
+      hasDirectUrl: !!process.env.DIRECT_URL,
+      hasJwtSecret: !!process.env.JWT_SECRET
     });
-    
+
     const { email, password } = await request.json();
-    
+    console.log('Login attempt for email:', email);
+
     // Basic validation
     if (!email || !password) {
+      console.log('Missing email or password');
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
       );
     }
 
-    // Database connection test
+    // Test database connection
     try {
       await prisma.$connect();
       console.log('Database connection successful');
@@ -66,6 +69,7 @@ export async function POST(request: Request) {
     }
 
     if (!user) {
+      console.log('No user found with email:', email);
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -76,6 +80,7 @@ export async function POST(request: Request) {
     try {
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
+        console.log('Invalid password for user:', email);
         return NextResponse.json(
           { error: 'Invalid credentials' },
           { status: 401 }
@@ -137,7 +142,7 @@ export async function POST(request: Request) {
         maxAge: 86400 // 1 day
       });
 
-      console.log('Login successful');
+      console.log('Login successful for user:', email);
       return response;
     } catch (responseError) {
       console.error('Response creation error:', responseError);
