@@ -9,8 +9,8 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "ts-node scripts/seed-db.ts",
-    "vercel-build": "prisma generate && next build"
+    "db:seed": "ts-node --project scripts/tsconfig.json scripts/seed-db.ts",
+    "vercel-build": "prisma generate && prisma db push && ts-node --project scripts/tsconfig.json scripts/seed-db.ts && next build"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
