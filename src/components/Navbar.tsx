@@ -13,12 +13,12 @@ const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link href="/" className="flex-shrink-0">
-              {/* Replace with your actual logo */}
-              <div className="w-40 h-12 relative">
+              <div className="w-48 h-14 relative">
                 <Image
-                  src="/images/logo.png"
+                  src="/images/logo-nierakovine.png"
                   alt="Nie Rakovine Logo"
                   fill
+                  sizes="(max-width: 768px) 150px, 200px"
                   style={{ objectFit: 'contain' }}
                   priority
                 />
