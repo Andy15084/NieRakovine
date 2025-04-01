@@ -3,19 +3,25 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-// Create a single PrismaClient instance
-let prisma: PrismaClient;
+// Configure Prisma Client with special handling for connection pooling
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL
+      }
+    }
+  })
+}
 
-if (process.env.NODE_ENV === 'production') {
-  prisma = new PrismaClient();
-} else {
-  // @ts-ignore
-  if (!global.prisma) {
-    // @ts-ignore
-    global.prisma = new PrismaClient();
-  }
-  // @ts-ignore
-  prisma = global.prisma;
+declare global {
+  var prisma: undefined | ReturnType<typeof prismaClientSingleton>
+}
+
+const prisma = globalThis.prisma ?? prismaClientSingleton()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.prisma = prisma
 }
 
 export async function POST(request: Request) {
@@ -25,7 +31,8 @@ export async function POST(request: Request) {
       nodeEnv: process.env.NODE_ENV,
       hasDbUrl: !!process.env.DATABASE_URL,
       hasDirectUrl: !!process.env.DIRECT_URL,
-      hasJwtSecret: !!process.env.JWT_SECRET
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      dbUrl: process.env.DATABASE_URL?.split('?')[0] // Log URL without credentials
     });
 
     const { email, password } = await request.json();
@@ -40,19 +47,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Test database connection
-    try {
-      await prisma.$connect();
-      console.log('Database connection successful');
-    } catch (dbError) {
-      console.error('Database connection error:', dbError);
-      return NextResponse.json(
-        { error: 'Database connection failed', details: dbError instanceof Error ? dbError.message : 'Unknown error' },
-        { status: 500 }
-      );
-    }
-
-    // Find user
+    // Find user without explicit connection
     let user;
     try {
       user = await prisma.user.findUnique({
@@ -157,11 +152,5 @@ export async function POST(request: Request) {
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
-  } finally {
-    try {
-      await prisma.$disconnect();
-    } catch (disconnectError) {
-      console.error('Error disconnecting from database:', disconnectError);
-    }
   }
 } 

@@ -1,17 +1,26 @@
 import { PrismaClient, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+// Configure Prisma Client with special handling for connection pooling
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL
+      }
+    },
+    log: ['query', 'error', 'warn']
+  })
+}
+
+const prisma = prismaClientSingleton();
 
 async function verifyDatabaseConnection() {
   try {
-    await prisma.$connect();
-    console.log('✓ Database connection successful');
-    
     // Test query
     const count = await prisma.user.count();
     console.log(`✓ Database query successful (${count} users found)`);
-    
+    console.log('Database URL:', process.env.DATABASE_URL?.split('?')[0]); // Log URL without credentials
     return true;
   } catch (error) {
     console.error('✗ Database connection failed:', error);
@@ -86,12 +95,8 @@ async function main() {
     console.error('Error seeding database:', error);
     throw error;
   } finally {
-    try {
-      await prisma.$disconnect();
-      console.log('Database connection closed');
-    } catch (error) {
-      console.error('Error disconnecting from database:', error);
-    }
+    await prisma.$disconnect();
+    console.log('Database connection closed');
   }
 }
 
