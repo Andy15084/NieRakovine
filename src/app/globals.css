@@ -9,6 +9,7 @@
   --primary-purple: #8E44AD;
   --light-purple: #9B59B6;
   --dark-purple: #6C3483;
+  --dark-blue: #2C3E50;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,24 +21,20 @@
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgb(var(--background-end-rgb))
-  )
-  rgb(var(--background-start-rgb));
-  @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-white;
+  @apply min-h-screen;
+  background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%);
 }
 
 @layer components {
   .nav-link {
-    @apply px-4 py-2 transition-colors duration-200 hover:text-[var(--light-purple)];
+    @apply px-4 py-2 rounded-full transition-all duration-200 
+    bg-white/50 hover:bg-[var(--light-purple)] hover:text-white
+    hover:shadow-lg transform hover:-translate-y-0.5;
   }
 
   .dropdown {
     @apply invisible opacity-0 absolute bg-white shadow-lg rounded-md py-2 min-w-[200px]
-    transition-all duration-200 transform -translate-y-2;
+    transition-all duration-200 transform -translate-y-2 mt-2;
   }
 
   .group:hover .dropdown {
@@ -45,6 +42,11 @@ body {
   }
 
   .dropdown-item {
-    @apply block px-4 py-2 text-gray-800 transition-colors duration-200 hover:bg-[var(--light-purple)] hover:text-white;
+    @apply block px-4 py-2 text-gray-800 transition-colors duration-200 
+    hover:bg-[var(--light-purple)] hover:text-white;
+  }
+
+  .footer {
+    @apply bg-[var(--dark-blue)] text-white py-8 mt-auto;
   }
 }
