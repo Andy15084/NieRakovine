@@ -22,14 +22,14 @@
 
 body {
   @apply min-h-screen;
-  background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%);
+  background: linear-gradient(180deg, var(--light-purple) 0%, white 100%);
 }
 
 @layer components {
   .nav-link {
-    @apply px-4 py-2 rounded-full transition-all duration-200 
-    bg-white/50 hover:bg-[var(--light-purple)] hover:text-white
-    hover:shadow-lg transform hover:-translate-y-0.5;
+    @apply px-4 py-2 rounded-md transition-all duration-200 
+    bg-[var(--light-purple)] text-white
+    hover:bg-[var(--dark-purple)] hover:shadow-md;
   }
 
   .dropdown {
