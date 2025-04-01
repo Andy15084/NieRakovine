@@ -16,7 +16,7 @@ const Navbar = () => {
               {/* Replace with your actual logo */}
               <div className="w-40 h-12 relative">
                 <Image
-                  src="/logo.png"
+                  src="/images/logo.png"
                   alt="Nie Rakovine Logo"
                   fill
                   style={{ objectFit: 'contain' }}
