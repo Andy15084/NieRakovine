@@ -32,10 +32,7 @@ body {
 
 @layer components {
   .nav-link {
-    @apply px-4 py-2 transition-colors duration-200;
-    &:hover {
-      @apply text-light-purple;
-    }
+    @apply px-4 py-2 transition-colors duration-200 hover:text-[var(--light-purple)];
   }
 
   .dropdown {
@@ -48,9 +45,6 @@ body {
   }
 
   .dropdown-item {
-    @apply block px-4 py-2 text-gray-800 transition-colors duration-200;
-    &:hover {
-      @apply bg-light-purple text-white;
-    }
+    @apply block px-4 py-2 text-gray-800 transition-colors duration-200 hover:bg-[var(--light-purple)] hover:text-white;
   }
 }
