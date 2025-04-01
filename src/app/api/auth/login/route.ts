@@ -40,9 +40,7 @@ export async function POST(request: Request) {
       nodeEnv: process.env.NODE_ENV,
       hasDbUrl: !!process.env.DATABASE_URL,
       hasDirectUrl: !!process.env.DIRECT_URL,
-      hasJwtSecret: !!process.env.JWT_SECRET,
-      dbUrlPreview: process.env.DATABASE_URL?.split('@')[1]?.split('?')[0], // Safe URL preview
-      directUrlPreview: process.env.DIRECT_URL?.split('@')[1]?.split('?')[0] // Safe URL preview
+      hasJwtSecret: !!process.env.JWT_SECRET
     };
     console.log('Environment check:', envCheck);
 
@@ -66,68 +64,57 @@ export async function POST(request: Request) {
       );
     }
 
-    // Deallocate any existing prepared statements
+    // Test database connection with a simple query
     try {
-      await prisma.$executeRaw`DEALLOCATE ALL`;
-    } catch (deallocError) {
-      console.warn('Failed to deallocate statements:', deallocError);
-      // Continue anyway as this is not critical
+      const userCount = await prisma.user.count();
+      console.log('Database connection test successful, users found:', userCount);
+    } catch (connError) {
+      console.error('Database connection test failed:', {
+        error: connError instanceof Error ? connError.message : 'Unknown error',
+        stack: connError instanceof Error ? connError.stack : undefined
+      });
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 500 }
+      );
     }
 
-    // Use transaction for consistent database operations
-    const result = await prisma.$transaction(async (tx) => {
-      // Test database connection
-      try {
-        const testQuery = await tx.$queryRaw`SELECT current_database(), current_user`;
-        console.log('Database connection test successful:', testQuery);
-      } catch (connError) {
-        console.error('Database connection test failed:', {
-          error: connError instanceof Error ? connError.message : 'Unknown error',
-          stack: connError instanceof Error ? connError.stack : undefined
-        });
-        throw new Error('Database connection failed');
-      }
-
-      // Find user
-      const user = await tx.user.findUnique({
-        where: { email },
-        include: { profile: true }
-      });
-
-      console.log('User lookup result:', user ? {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        hasProfile: !!user.profile
-      } : 'User not found');
-
-      if (!user) {
-        return { error: 'Invalid credentials', status: 401 };
-      }
-
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        console.log('Invalid password for user:', email);
-        return { error: 'Invalid credentials', status: 401 };
-      }
-
-      return { user };
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { profile: true }
     });
 
-    if ('error' in result) {
+    console.log('User lookup result:', user ? {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      hasProfile: !!user.profile
+    } : 'User not found');
+
+    if (!user) {
       return NextResponse.json(
-        { error: result.error },
-        { status: result.status }
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      );
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      console.log('Invalid password for user:', email);
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
       );
     }
 
     // Create JWT token
     const token = jwt.sign(
       { 
-        userId: result.user.id,
-        email: result.user.email,
-        role: result.user.role
+        userId: user.id,
+        email: user.email,
+        role: user.role
       },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
@@ -137,11 +124,11 @@ export async function POST(request: Request) {
     const response = NextResponse.json(
       { 
         user: {
-          id: result.user.id,
-          email: result.user.email,
-          name: result.user.name,
-          role: result.user.role,
-          profile: result.user.profile
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          profile: user.profile
         }
       },
       { status: 200 }

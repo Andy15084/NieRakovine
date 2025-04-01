@@ -3,16 +3,18 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient({
   log: ['query', 'error', 'warn'],
+  datasources: {
+    db: {
+      url: process.env.DIRECT_URL || process.env.DATABASE_URL
+    }
+  }
 });
 
 async function verifyDatabaseConnection() {
   try {
-    // Deallocate any existing prepared statements
-    await prisma.$executeRaw`DEALLOCATE ALL`;
-    
-    // Test the connection
-    const result = await prisma.$queryRaw`SELECT current_database(), current_user`;
-    console.log('✓ Database query successful:', result);
+    // Simple connection test using count
+    const userCount = await prisma.user.count();
+    console.log('✓ Database connection successful, users found:', userCount);
     return true;
   } catch (error) {
     console.error('✗ Database connection failed:', error);
@@ -38,55 +40,48 @@ async function main() {
       throw new Error('Failed to connect to database');
     }
 
-    // Start transaction
-    await prisma.$transaction(async (tx) => {
-      // Check if admin exists
-      const userCount = await tx.user.count();
-      console.log(`Found ${userCount} existing users`);
+    // Hash password
+    const hashedPassword = await bcrypt.hash('admin123', 10);
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-
-      // Create or update admin user
-      const admin = await tx.user.upsert({
-        where: { email: 'admin@charity.org' },
-        update: {
-          password: hashedPassword,
-          role: 'ADMIN',
-        },
-        create: {
-          email: 'admin@charity.org',
-          password: hashedPassword,
-          role: 'ADMIN',
-          profile: {
-            create: {
-              bio: 'Admin user',
-            }
+    // Create or update admin user
+    const admin = await prisma.user.upsert({
+      where: { email: 'admin@charity.org' },
+      update: {
+        password: hashedPassword,
+        role: 'ADMIN',
+      },
+      create: {
+        email: 'admin@charity.org',
+        password: hashedPassword,
+        role: 'ADMIN',
+        profile: {
+          create: {
+            bio: 'Admin user',
           }
-        },
-        include: {
-          profile: true
         }
-      });
+      },
+      include: {
+        profile: true
+      }
+    });
 
-      console.log('Admin user created/updated:', {
-        id: admin.id,
-        email: admin.email,
-        role: admin.role
-      });
+    console.log('Admin user created/updated:', {
+      id: admin.id,
+      email: admin.email,
+      role: admin.role
+    });
 
-      // Verify admin user
-      const verifiedAdmin = await tx.user.findUnique({
-        where: { email: 'admin@charity.org' },
-        include: { profile: true }
-      });
+    // Verify admin user
+    const verifiedAdmin = await prisma.user.findUnique({
+      where: { email: 'admin@charity.org' },
+      include: { profile: true }
+    });
 
-      console.log('✓ Admin user verified:', {
-        id: verifiedAdmin?.id,
-        email: verifiedAdmin?.email,
-        role: verifiedAdmin?.role,
-        hasProfile: !!verifiedAdmin?.profile
-      });
+    console.log('✓ Admin user verified:', {
+      id: verifiedAdmin?.id,
+      email: verifiedAdmin?.email,
+      role: verifiedAdmin?.role,
+      hasProfile: !!verifiedAdmin?.profile
     });
 
     console.log('Database seeding completed successfully!');
